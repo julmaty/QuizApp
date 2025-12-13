@@ -1,6 +1,8 @@
 # QuizApp (Go backend + React frontend)
 
-This is a minimal starter scaffold for a simple quiz application.
+A minimal, production-ready quiz application with a Go backend (REST API + Postgres) and React/Vite frontend.
+
+**Repository**: https://github.com/julmaty/QuizApp
 
 Quick start (PowerShell):
 

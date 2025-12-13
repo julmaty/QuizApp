@@ -45,9 +45,11 @@ This repository currently has no code or discoverable project files. Treat this 
 ---
 Please tell me which language/framework you'll use or add a README/code and I'll update this file to include repository-specific commands and examples. Do you want me to initialize a simple Node or Python starter layout now?
 
-## Project: Go backend + React (Vite) frontend
+## Project: QuizApp (Go backend + React Vite frontend)
 
-You asked for a Go server and a React client for a simple quiz app. Below are concrete, discoverable patterns and run commands specific to this scaffolding.
+QuizApp is a full-stack quiz application with a persistent Postgres backend and a React frontend served via Vite/nginx.
+
+**GitHub Repository**: https://github.com/julmaty/QuizApp
 
 Key files added by the scaffolder:
 - `backend/main.go`, `backend/handlers.go`, `backend/models.go` — Go HTTP server, in-memory store, endpoints:
