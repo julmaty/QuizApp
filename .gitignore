@@ -19,6 +19,9 @@ Thumbs.db
 .env
 .env.local
 
+# Ignore other env variants
+.env.*
+
 # Logs
 *.log
 npm-debug.log*
@@ -27,3 +30,15 @@ yarn-error.log*
 
 # Docker
 .docker/
+
+# Go
+/quizapp
+*.out
+coverage.out
+
+# Frontend caches
+/frontend/.cache
+/frontend/.parcel-cache
+
+# Vendored Go modules
+backend/vendor/

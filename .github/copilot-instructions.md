@@ -79,25 +79,49 @@ Service dependencies and ports ([docker-compose.yml](../docker-compose.yml)):
 - `db` (Postgres 15): internal only; health check ensures readiness before backend starts
 - `backend`: depends on db; port 8080 → host 8080
 - `frontend`: depends on backend; port 80 (nginx) → host 5173; nginx serves prod build
-- Volume `db-data` persists Postgres data
 
-Backend env inside compose: `DATABASE_URL` not set, so uses default pointing to `db:5432`
-Frontend nginx is built from [frontend/Dockerfile](../frontend/Dockerfile); should listen on :80 internally
+## QuizApp — Editor/Agent Guide
 
-### Conventions & change patterns
+Short summary
+- Architecture: Go (Gin) backend (:8080) + React (Vite) frontend (:5173) + Postgres. Docker Compose builds and wires services.
 
-**When adding features**:
-- New HTTP endpoints go in [backend/main.go](../backend/main.go) (route registration) + [backend/handlers.go](../backend/handlers.go) (implementation)
-- New Quiz fields require updates to [backend/models.go](../backend/models.go) AND the table schema in [backend/db.go](../backend/db.go)
-- Frontend components should call `http://localhost:8080/api/quizzes` directly; no abstraction layer yet
-- Ensure POST handlers update both `QuizCreatedAt` **and** generate IDs if missing (see [backend/handlers.go](../backend/handlers.go))
+Quick dev commands
+- Backend (local): `cd backend && go run .`
+- Frontend (dev): `cd frontend && npm install && npm run dev`
+- Full stack (docker): `docker compose up --build`
 
-**CORS gotchas**:
-- Every handler must include `enableCors(w)` call
-- Hardcoded to `http://localhost:5173`; must change when frontend URL changes
-- Frontend Vite dev server runs on :5173; production nginx also mapped to :5173 in compose
+Key files & patterns
+- Routes: [backend/main.go](backend/main.go) — Gin router and OPTIONS handling.
+- Handlers: [backend/handlers.go](backend/handlers.go) — call `enableCorsHeaders(c)` at top of each handler; check for OPTIONS; use `c.BindJSON` and `c.JSON`.
+- Models: [backend/models.go](backend/models.go) — `Quiz`, `Question`, `Option`, `Response`. Normalized DB tables; `Quiz` JSON field legacy handling exists.
+- DB init: [backend/db.go](backend/db.go) — reads `DATABASE_URL` (defaults to the compose `db`), uses GORM `AutoMigrate`, and retries DB open with exponential backoff.
+- Frontend fetch: [frontend/src/App.jsx](frontend/src/App.jsx) — hardcoded `http://localhost:8080/api/quizzes`; adjust when backend URL changes.
 
-**Database schema**:
-- Quizzes stored as JSONB; no normalization of Questions
-- Schema auto-created on backend startup; no migrations tool yet
+Project-specific conventions (do these exactly)
+- CORS: Single helper `enableCorsHeaders(c *gin.Context)` in `handlers.go`; every handler must call it and handle `OPTIONS` requests.
+- Preloading relations: handlers always use `db.Preload("Questions.Options")` before reads; preserve this pattern to avoid missing nested data.
+- Legacy JSONB rows: `listQuizzes` merges legacy `data` JSONB into normalized `Questions` when empty — keep this compatibility logic when changing models.
+- ID/CreatedAt behavior: POST handler (`createQuiz`) auto-generates `Quiz.ID` when empty and sets `CreatedAt` when zero. Preserve or intentionally modify both when changing creation flows.
+- Schema changes: there is no migration tool — the code relies on `db.AutoMigrate(...)` in `initDB()`. Update `models.go` and expect AutoMigrate to run on startup.
+
+Adding endpoints or schema fields
+- Register new routes in [backend/main.go](backend/main.go) and implement handlers in [backend/handlers.go](backend/handlers.go).
+- Add model fields in [backend/models.go](backend/models.go) and run the app (or `docker compose up`) to let `AutoMigrate` apply the simple schema changes. For complex migrations, plan manual SQLs (no migration framework present).
+
+Docker / compose notes
+- `docker-compose.yml` exposes backend `8080:8080` and frontend `5173:80` (nginx serves built frontend). Postgres uses `POSTGRES_*` envs; backend defaults its DSN to `postgres://postgres:password@db:5432/quizdb?sslmode=disable` if `DATABASE_URL` is not set.
+
+Libraries & runtime
+- Backend: Gin (HTTP), GORM (ORM), Postgres driver; vendor directory present.
+- Frontend: React + Vite; production frontend image built into nginx via `frontend/Dockerfile`.
+
+Testing & gaps
+- There are no automated tests in the repo. Validate changes manually using the dev commands above or with `docker compose up`.
+
+What to watch for when editing
+- Do not remove `enableCorsHeaders` calls or OPTIONS handling — the frontend dev server expects CORS set to `http://localhost:5173`.
+- Keep `Preload("Questions.Options")` so nested options load correctly.
+- When changing JSON shape stored in DB (legacy `data` JSONB vs normalized tables), update the compatibility code in `listQuizzes`.
+
+If anything is unclear or you'd like the guide expanded (examples for adding a route, sample request/response, or migration steps), tell me which part to expand.
 
